@@ -1,0 +1,106 @@
+// A simple implementation of sine waves along a given, unnormalized velocity
+
+const float TAU = 6.2831852;
+const float PI = 0.5 * TAU; // This is a political statement
+
+const float octaves = 8.0;
+const vec2 globalVelocity = vec2(6.,-3.);
+
+// Hash without Sine by Dave Hoskins
+// https://www.shadertoy.com/view/4djSRW
+float hash11(float p)
+{
+    const float HASHSCALE1 = .1031;
+	vec3 p3  = fract(vec3(p) * HASHSCALE1);
+    p3 += dot(p3, p3.yzx + 19.19);
+    return fract((p3.x + p3.y) * p3.z);
+}
+
+float getAmplitude(float octave)
+{
+    return 1.0 / pow(2.2, octave);
+}
+
+float getWavelength(float octave)
+{
+	const float maximumWavelength = 50.0;
+    
+    float wavelength = TAU * maximumWavelength / pow(2.0, octave);
+
+    // Make it aperiodic with a random factor
+    wavelength *= 0.75 + 0.5 * hash11(1.337 * octave);
+    
+    return wavelength;
+}
+
+float getSpeed(float octave)
+{
+    const float speedScaleFactor = 2.0;
+    
+    // Smallest waves travel twice as fast as given velocity,
+    // largest waves travel half as fast
+    const vec2 speedRange = vec2(2.0, 0.5);
+    
+    // Map octave to speed range
+    float speed = speedScaleFactor * mix(speedRange.x, speedRange.y, octave / (max(1.0, octaves - 1.0)));
+    
+    // Add some randomness
+    speed *= 0.5 + hash11(1.337 * octave);
+    
+    return speed;
+}
+
+float getHeight(vec2 position, vec2 velocity)
+{
+    float magnitude = length(velocity);
+
+    float height = 0.0;
+    
+    for (float octave = 0.0; octave < octaves; octave += 1.0)
+    {
+                vec2 direction = (magnitude > 1e-5) ? velocity / magnitude : vec2(0.0);
+
+        float amplitude = getAmplitude(octave);
+        float wavelength = getWavelength(octave);
+        float speed = magnitude * getSpeed(octave);
+        float frequency = TAU / wavelength;
+        float randomPhaseOffset = hash11(1.337 * octave) * TAU;
+        float phase = speed * frequency + randomPhaseOffset;
+        float theta = dot(-direction, position);
+    
+        height += amplitude * sin(theta * frequency + iGlobalTime * phase);
+        
+        float a = (hash11(octave+floor(iGlobalTime-iDate.w))-.5)*.3; //random seed
+        velocity*=mat2(cos(a),sin(a),-sin(a),cos(a));
+    }
+    
+    return height;
+}
+
+
+
+void mainImage(out vec4 fragColor, in vec2 fragCoord)
+{
+    vec2 uv = fragCoord / iResolution.xy-.5;
+    vec2 ut= iMouse.xy / iResolution.xy-.5;
+    if(iMouse.x==0.)
+        ut=vec2(-.3,.2);
+    
+ 		vec2 e =vec2(.001,0);
+    	float scale =100.,h=-1e-4;;
+    
+		vec3 nor = normalize(vec3(getHeight((uv+e.xy)*scale, globalVelocity) -getHeight((uv-e.xy)*scale, globalVelocity) ,
+                             getHeight((uv+e.yx)*scale, globalVelocity) -getHeight((uv-e.yx)*scale, globalVelocity) ,h/e.x));
+
+    fragColor= mix(
+        /**/
+        vec4(
+        textureCube(iChannel0,refract(normalize(vec3(uv,.5)),nor,.704).xzy).r,
+        textureCube(iChannel0,refract(normalize(vec3(uv,.5)),nor,.714).xzy).g,
+        textureCube(iChannel0,refract(normalize(vec3(uv,.5)),nor,.724).xzy).b,
+        0),
+        /**/
+        //textureCube(iChannel0,refract(normalize(vec3(uv,.5)),nor,.724).xzy), //without chromatic aberration
+                   textureCube(iChannel0,reflect(normalize(vec3(uv,.5)),nor).xzy),smoothstep(0.,2.,length(uv)))
+        +.05/distance(reflect(normalize(vec3(ut,.8)),nor),normalize(vec3(uv,-1.)));
+}

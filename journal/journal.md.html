@@ -1,0 +1,115 @@
+﻿                  <meta charset="utf-8">
+                 **Development Journal**
+
+
+
+2016-11-07: Shadertoy shaders
+=============================================================
+Here are three shaders I found on Shadertoy that I thought were interesting for their simplicity but unique images.
+
+![[interactive thinks](https://www.shadertoy.com/view/Xt3SR4) by Sebastian Durand](shader.png)
+
+![[water shader](https://www.shadertoy.com/view/lltSRH) by stduhpf](shader3.png)
+
+![[Rhodium liquid carbon](https://www.shadertoy.com/view/llK3Dy) by Jochen "Virgill" Feldkötter](shader2.png)
+
+The souce code for these shaders are in the shader-files folder in journal as .txt files.
+
+2016-11-07: Snow Man with noise function
+=============================================================
+
+![](2016-11-07_004_gpu-trace_r2154_g3d_r974__.jpg)
+
+Here is my finished custom scene.
+
+
+2016-11-07: Snow Man in a Storm
+=============================================================
+
+
+![](2016-11-07_003_gpu-trace_r2154_g3d_r974__.jpg)
+
+![](2016-11-07_002_gpu-trace_r2154_g3d_r974__.jpg)
+
+This is a result of trying to apply the repeat function on my snowman.
+
+
+2016-11-07: Snow Man with a Hat
+=============================================================
+
+![](2016-11-07_000_gpu-trace_r2154_g3d_r974__.jpg)
+
+Added a black hat to my snow man.
+
+2016-11-07: Started Custom Scene
+=============================================================
+
+![](2016-11-07_001_gpu-trace_r2154_g3d_r974__.jpg)
+
+Making a cutom scene with a snow man due to time constraints.  Here is the body
+of the snow man.
+
+2016-11-06: More Shapes
+=============================================================
+
+![](2016-11-06_001_gpu-trace_r2102_g3d_r974__.jpg)
+
+Added more objecdts to my scene using different distance estimators from the
+Graphics Codex including a box, rounded box, torus, and cylinder.
+
+2016-11-06: Worked on Report
+=============================================================
+Worked on the correctness results for my report including sphere positions and normals images, clouds through noise, hit ray positions, and checkerboard.
+
+
+2016-11-06: Added Ambient Visibility
+=============================================================
+
+![](2016-11-06_000_gpu-trace_r2052_g3d_r974__.jpg)
+
+Added ambient visibility based on the same function in the javascript version of
+ythe raytracer.
+
+
+2016-11-03: End of Lab
+=====================================================
+![](working_shading_and_shadows.jpg)
+Wrote all of the code we wrote in class with the help of Julia's notes from class.  This includes sphere intersection, shadows, and shading.  My code is currently at MVP.
+
+2016-11-03: Wierd Shadows and Shading
+=====================================================
+![](wierd_shadows.jpg)
+Here is my current shading and shadow code put together, which is clearly incorrect since the shading is on one side and the shadow, along with it being projected on the sphere, is on the other side.
+
+This took a long ime to debug.  I looked over my code multiple times, especially my intersection code.  I also looked at the Graphics Codex and consulted many people to see if I could figure out what was wrong.  I tried changing the values on the multiple epsilons in my code used for computing normals, bumping the surface normal, and bumping the shadow ray but none of this worked.  The solution to this problem ended up being when I computed the normal for object intersected, I subtracted The Q value from just the Z value of the computed normal rather than the whole normal.
+
+2016-11-03: Wierd Shading
+=====================================================
+![](wierd_shading.jpg)
+Her is a first attempt at shading, which is obviously incorrect due to the appearence of rings on the sphere.
+
+I was able to fix this bug by increasing the epsilon I'm using to bump the normal of the sphere.
+
+2016-11-03: I Have Normals
+=====================================================
+![](colorful_balls.jpg)
+Here is a visual using colors for the normals I am computing for this sphere.
+
+2016-11-03: I Have Some Bad Shadows
+=====================================================
+![](shadows_no_shade.jpg)
+I have some shadows for spheres that is incorrect.  The sphere is too dark since the shadow should only appear on the ground.
+
+2016-11-03: I Have a Sphere
+=====================================================
+![](no_shadow_or_shade.jpg)
+Have a red sphere showing up using code I wrote.  No shading or shadows yet.
+
+2016-11-02: Prep
+=====================================================
+Worked on the lab before we actually met in lab.  Downloaded the starter code, and restuructured the code to match our normal file stucture.
+
+Wrote parts of the sphere tracing code from class in trace-raymarch.pix.  My Visual Studio did not recognize the .pix file extension and decided to treat it as a visual basic program rather than like a C++ program which would force keywords like 'if', 'for', and 'const' to be capitalized.  This problem was fixed with the help of Morgan by goung into the Visual Studio Text Editor properties and speifying all .pix and .glsl files should be treated as though they are C++ files.  
+
+<!-- Markdeep: -->
+<style class="fallback">body{visibility:hidden;white-space:pre;font-family:monospace;}</style><script src="https://casual-effects.com/markdeep/latest/markdeep.min.js"></script><script>window.alreadyProcessedMarkdeep||(document.body.style.visibility="visible")</script>

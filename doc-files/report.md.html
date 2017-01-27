@@ -1,0 +1,93 @@
+**Lab 5: Ray March**
+        **John Freeman (jcf1@williams.edu)**
+
+![Real-time Ray Marched Snow Man](snow_man.jpg)
+
+Design
+================================
+I constructed the snow man in my custom scene by breaking it down into three parts, the head of the snow man, the body of the snow man, and his hat.  The head is constructed from three spheres: one for the actual head and two for the eyes.  The body is constructed through 5 spheres: one for the bottom of the snow man, one for the torso, and three for the buttons.  The hat is constructed from a torus and a cylinder.  Each is placed in it's proper place with estimate distance functions defined.  A noise function is used in the estimate distance functions for head and body to add a noise texture to the snow man to make him more interesting.
+
+Results
+================================
+The following are results from our program and custom scene.
+
+Correctness Results
+-------------------------------------------------------------------------------------
+![Checkerboard of black and white squares where each are 16x16 pixels](checkerboard.jpg) ![Eye ray directions visualized as colors](eye_rays.jpg) ![Clouds made by three-octave noise functions](clouds.jpg)
+
+![Analytic Positions](analytic_positions.jpg) ![Analytic Normals](analytic_normals.jpg) ![Ray-Marched Positions](ray_positions.jpg) ![Ray-Marched Normals](ray_normals.jpg)
+
+![Ray Marched Sphere with direct illumination](ray_sphere.jpg) ![Ray Marched Cube with direct illumination](ray_cube.jpg) ![Ray Marched Rounded Cube with direct illumination](ray_rcube.jpg)
+
+![Ray Marched Torus with direct illumination](ray_torus.jpg) ![Ray Marched Cylinder with direct illumination](ray_cylinder.jpg)
+
+Demonstration Images
+-------------------------------------------------------------------------------------
+![View of my snow man from the front](snow_man.jpg)
+![View of my snow man from the side](snow_man_side.jpg)
+![View of my snow man from the back](snow_man_back.jpg)
+![An attempt at me trying to repeat my snow man, but still looks cool!](snow_man_repeat.jpg)
+
+Questions
+================================
+1. I really liked the shader "Interactive thinks" by Sebastien Durand, username iapafoto, found [here](https://www.shadertoy.com/view/Xt3SR4).  It appealed to me due to the ability to change various settings in the scene to make it look very different and how concise the code for it is.  This shader uses a sine wave in a fractal to generate images and allows sliders to change different values in the program to produce different fractals.  It also uses a spiral noise function which adda and rotates sin waves while increasing the frequency.  It also has a renderSuperstructure method that seems to be dealing with shading and lighting of the fractal.
+    !["Interactive thinks" by Sebastien Durand.](shader.png)
+ 
+
+2. [Shadertoy](https://www.shadertoy.com/) and [OpenGL](https://www.opengl.org/) were addition resources I used apart from the Graphics Codex on this project.
+
+3. Here are some differences between C/C++ and GLSL.
+    - No recursion
+    - No pointers
+    - Specifying parameters as inout if you want to pass-by-reference
+    - No debug printf to write to output for debugging
+    - Everything in glsl involves vectors with its vec3 struture
+    - Minimizing the amount of branching
+
+Self-Review
+================================
+I think I deserve a B for this project due to the following reasons.
+
+Code Design
+--------------------------------
+I thought my code design was good for the most part, but I was unable to figure out how to avoid branching as much I would have liked.
+
+Expected Code Correctness
+--------------------------------
+I think my code is correct and follows the guidelines in the specification.
+
+Scene Visual Quality
+--------------------------------
+My custom scene is pretty boring; I wish I could have had more time to play with implicit surfaces and make it better.
+
+Expected Report Correctness
+--------------------------------
+I think my report is correct and an accurate representation of my project as a whole.
+
+Skills
+================================
+Skills and knowledge gained through this lab.
+
+Engineering
+--------------------------------
+- Programing in GLSL
+- Better applying software engineering skills learned earlier in the course
+- Efficiently writing solo code
+- Reading and understanding Shadertoy code
+
+Algorithmic
+--------------------------------
+- Ray Marching Algorithm
+- Better understanding of Ray Tracing Algorithm
+
+Mathematical
+--------------------------------
+- Many different distance estimators
+- Applying transformations to different shapes
+
+Acknowledgements
+================================
+Special thanks to Julia Goldman for her notes from class, which helped with the writing of this project.
+
+<!-- Markdeep: -->
+<style class="fallback">body{visibility:hidden;white-space:pre;font-family:monospace;}</style><script src="https://casual-effects.com/markdeep/latest/markdeep.min.js"></script><script>window.alreadyProcessedMarkdeep||(document.body.style.visibility="visible")</script>

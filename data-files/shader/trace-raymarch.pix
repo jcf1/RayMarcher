@@ -1,0 +1,332 @@
+#version 410 // -*- c++ -*-
+#include <g3dmath.glsl>
+#include <noise.glsl>
+#include <Texture/Texture.glsl>
+
+// Input arguments from the C++ program
+uniform mat4x3         cameraToWorldMatrix;
+
+uniform TextureCube    environmentMap;
+
+uniform float          tanHalfFieldOfViewY;
+uniform float          projectionMatrix22, projectionMatrix23;
+
+// Output to the App::m_framebuffer
+out Color3 pixelColor;
+
+#define surfaceUnion(h, f, X) min(h(X), f(X))
+      
+#define intersectSurface(h, f, X) max(h(X), f(X))
+      
+#define subtractSurface(h, f, X) max(h(X), -f(X))
+      
+#define repeat(h, period, X, m) h(mod(X, period), m)
+    
+#define transformSurface(h, M, X)\
+  h((inverse(M) * vec4(X, 1.0)).xyz) * determinant(M)
+    
+float smin(float a, float b, float blendRadius) {
+    float c = saturate(0.5 + (b - a) * (0.5 / blendRadius));
+    return lerp(b, a, c) - blendRadius * c * (1.0 - c);
+}
+
+struct Material {
+    Color3 color;
+};
+
+struct Surfel{
+    Point3 position;
+    Material material;
+    Vector3 normal;
+};
+
+struct ISphere {
+   Point3 center;
+   float  radius;
+   Material material;      
+};
+
+struct IBox {
+   Point3 center;
+   Vector3 b;
+   Material material;      
+};
+
+struct IRBox {
+   Point3 center;
+   Vector3 b;
+   float radius;
+   Material material;      
+};
+
+struct ITorus {
+   Point3 center;
+   float  r;
+   float R;
+   Material material;      
+};
+
+struct IWheel {
+   Point3 center;
+   float  r;
+   float R;
+   Material material;     
+};
+
+struct ICylinder {
+   Point3 center;
+   float  radius;
+   float height;
+   Material material;      
+};
+
+struct SnowManBody {
+    ISphere bottom;
+    ISphere middle;
+    ISphere button1;
+    ISphere button2;
+    ISphere button3;
+};
+
+struct SnowManHat {
+    ICylinder hat;
+    ITorus rim;
+};
+
+struct SnowManHead {
+    ISphere head;
+    ISphere left_eye;
+    ISphere right_eye;
+};
+
+//Scene Objects
+SnowManHead head = SnowManHead(ISphere(Point3(0, 6.75, 0), 1, Material(Color3(1, 1, 1))), ISphere(Point3(-0.5, 6.8, -1), 0.1, Material(Color3(0, 0, 0))), ISphere(Point3(0.5, 6.8, -1), 0.1, Material(Color3(0, 0, 0))));
+SnowManBody body = SnowManBody(ISphere(Point3(0, 2, 0), 2, Material(Color3(1, 1, 1))), ISphere(Point3(0, 4.5, 0), 1.5, Material(Color3(1, 1, 1))), ISphere(Point3(0, 3.25, -1.8), 0.25, Material(Color3(0, 0, 0))), ISphere(Point3(0, 4.25, -1.5), 0.25, Material(Color3(0, 0, 0))), ISphere(Point3(0, 5.25, -1.5), 0.25, Material(Color3(0, 0, 0))));
+SnowManHat hat = SnowManHat(ICylinder(Point3(0, 8, 0), 0.75, 0.5, Material(Color3(0, 0, 0))), ITorus(Point3(0, 7.5, 0), 0.5, 0.75, Material(Color3(0, 0, 0))));
+
+ISphere sphere1 = ISphere(Point3(0.5, 0.5, 0), 0.5, Material(Color3(1, 0, 0)));
+IBox box1 = IBox(Point3(10.5, 0.5, 0), Vector3(0.5, 0.5, 0.5), Material(Color3(0, 1, 0)));
+IRBox rbox1 = IRBox(Point3(20.5, 0.5, 0), Vector3(0.5, 0.5, 0.5), 0.1, Material(Color3(0, 0, 1)));
+ITorus torus1 = ITorus(Point3(30.5, 0.5, 0), 0.5, 1.0, Material(Color3(0, 0.5, 0.5)));
+ICylinder cylinder1 = ICylinder(Point3(40.5, 0.5, 0), 0.5, 0.5, Material(Color3(0.25, 0.5, 0)));
+
+//Sphere Distance Estimator
+float estimateDist(ISphere sphere, Point3 X, inout Material material) {
+    material = sphere.material;
+    return length(X - sphere.center) - sphere.radius;
+}
+
+//Box Distance Estimator
+float estimateDist(IBox box, Point3 X, inout Material material) {
+    material = box.material;
+    Vector3 d = abs(X - box.center) - box.b;
+    return min(maxComponent(d), 0) + length(max(d, Vector3(0, 0, 0)));
+}
+
+//Rounded Box Distance Estimator
+float estimateDist(IRBox rbox, Point3 X, inout Material material) {
+    material = rbox.material;
+    return length(max(abs(X - rbox.center) - rbox.b, Vector3(0, 0, 0))) - rbox.radius; 
+}
+
+//Torus Distance Estimator
+float estimateDist(ITorus torus, Point3 X, inout Material material) {
+    material = torus.material;
+    return length(vec2(length(X.xz - torus.center.xz) - torus.R, X.y - torus.center.y)) - torus.r;
+}
+
+//Cylinder Distance Estimator
+float estimateDist(ICylinder cylinder, Point3 X, inout Material material) {
+    material = cylinder.material;
+    Vector2 d = abs(Vector2(length(X.xz - cylinder.center.xz), X.y - cylinder.center.y)) - Vector2(cylinder.radius, cylinder.height);
+	return min(maxComponent(d), 0) + length(max(d, Vector2(0, 0)));
+}
+
+float estimateDist(SnowManBody smb, Point3 X, inout Material material) {
+    float t1, t2, t3, t4, t5;
+    Material m1, m2, m3, m4, m5;
+    float noise = noise(Vector3(gl_FragCoord.x/10, gl_FragCoord.y/10, gl_FragCoord.z/10), 1);
+    t1 = estimateDist(smb.middle, X, m1);
+    t2 = estimateDist(smb.bottom, X, m2);
+    t3 = estimateDist(smb.button1, X, m3);
+    t4 = estimateDist(smb.button2, X, m4);
+    t5 = estimateDist(smb.button3, X, m5);
+    if(t1 < t2 && t1 < t3 && t1 < t4 && t1 < t5) {
+        material = Material(Color3(1 - noise, noise, noise));
+        //material = m1;
+        return t1;
+    } else if(t2 < t3 && t2 < t4 && t2 < t5) {
+        material = Material(Color3(noise, 1 - noise, noise));
+        //material = m2;
+        return t2;
+    } else if(t3 < t4 && t3 < t5) {
+        material = m3;
+        return t3;
+    } else if(t4 < t5) {
+        material = m4;
+        return t4;
+    } else {
+        material = m5;
+        return t5;
+    }
+}
+
+float estimateDist(SnowManHat smh, Point3 X, inout Material material) {
+    float t1, t2;
+    Material m1, m2;
+    t1 = estimateDist(smh.hat, X, m1);
+    t2 = estimateDist(smh.rim, X, m2);
+    if(t1 < t2) {
+        material = m1;
+        return t1;
+    } else {
+        material = m2;
+        return t2;
+    }
+}
+
+float estimateDist(SnowManHead smh, Point3 X, inout Material material) {
+    float t1, t2, t3;
+    Material m1, m2, m3;
+    float noise = noise(Vector3(gl_FragCoord.x/10, gl_FragCoord.y/10, gl_FragCoord.z/10), 1);
+    t1 = estimateDist(smh.head, X, m1);
+    t2 = estimateDist(smh.left_eye, X, m2);
+    t3 = estimateDist(smh.right_eye, X, m3);
+    if(t1 < t2 && t1 < t3) {
+        material = Material(Color3(noise, noise, 1 - noise));;
+        //material = m1;
+        return t1;
+    } else if(t2 < t3) {
+        material = m2;
+        return t2;
+    } else {
+        material = m3;
+        return t3;
+    }
+}
+
+//Returns smallest distance estimator
+float estimateDist(Point3 X, inout Material material) {
+    Material m1, m2, m3;
+    float t1, t2, t3;
+    t1 = estimateDist(body, X, m1);
+    t2 = estimateDist(hat, X, m2);
+    t3 = estimateDist(head, X, m3);
+    if(t1 < t2 && t1 < t3) {
+        material = m1;
+        return t1;
+    } else if(t2 < t3) {
+        material = m2;
+        return t2;
+    } else {
+        material = m3;
+        return t3;
+    }
+}
+
+//Returns smallest distance estimator
+float estimateDist(Point3 X) {
+    Material ignore;
+    return estimateDist(X, ignore);//repeat(estimateDist, Vector3(10, 50, 30), X, ignore);
+}
+
+//Applies the Ray Marching algorithm to Ray Trace objects in a Scene
+bool traceRayMarch(Point3 P, Vector3 w, inout float maxDist, inout Surfel surfel) {
+    const int maxIters = 200;
+    const float closeEnough = 0.5e-2;
+    float t = 0.0;
+    for (int i = 0; (i < maxIters) && (t < maxDist); ++i) {
+        float dt = estimateDist(P + w * t);
+        if(dt < closeEnough) {
+            surfel.position = P + w * t;
+            float eps = 1e-2;
+            Point3 Q = P + (w * (t - eps));
+            maxDist = t;
+            surfel.normal = normalize(
+                Vector3(estimateDist(Q + Vector3(eps, 0, 0)), 
+                        estimateDist(Q + Vector3(0, eps, 0)), 
+                        estimateDist(Q + Vector3(0, 0, eps))) - estimateDist(Q, surfel.material));
+            return true;
+        }
+        t += max(dt, closeEnough);
+    }
+    return false;
+}
+
+//Returns if the given Ray intersects the ground plane.  If it does, Computes the surfel information and distance from the point.
+bool traceRayAnalytic(Point3 P, Vector3 w, inout float maxDist, inout Surfel surfel) {
+    float t = -P.y / w.y;
+    if (t < maxDist && sign(w.y * P.y) <= 0.0) {
+        surfel.material.color = Color3(1, 1, 1);
+        surfel.position = P + w * t;
+        surfel.normal = Vector3(0, 1, 0);
+        maxDist = t;
+        return true;
+    } else {
+        return false;
+    }
+}
+
+//Returns if the given Ray intersects the scene.
+bool traceRay(Point3 P, Vector3 w, inout float maxDist, inout Surfel surfel) {
+    bool hit = traceRayAnalytic(P, w, maxDist, surfel);
+    hit = traceRayMarch(P, w, maxDist, surfel) || hit;
+    return hit;
+}
+
+//Scales ambient color by ambient visibility
+float ambientVisibility(Point3 P, Vector3 n) {
+    const float steps = 3;
+    float weight = 3.0;
+    float a = 0.0;
+
+    for(int i = 1; i <= steps; ++i) {
+        Material ignore;
+        float d = 0.25 * pow( ((i + 0.5) / (0.5 + steps)) , 2);
+        float r = estimateDist( Point3(P + (n * d)), ignore);
+        a += weight * max(d - r, 0.0);
+        weight *= 0.5;
+    }
+
+    return clamp(pow((1.0 - a), 2), 0.4, 1.0);
+}
+
+void main() {
+    // Generate an eye ray in camera space, and then transform to world space
+
+    // Primary ray origin    
+    Point3 P  = cameraToWorldMatrix[3];
+
+    // Primary ray direction
+    Vector3 w = Matrix3(cameraToWorldMatrix) * 
+        normalize(Vector3((gl_FragCoord.xy - g3d_FragCoordExtent / 2.0) * Vector2(1, -1),
+                          g3d_FragCoordExtent.y / ( -2.0 * tanHalfFieldOfViewY)));
+
+    float maxDist = inf;       
+    Surfel surfel;
+
+    //Traces all the rays and if it hits the scene, colors that pixel to include the objects lambertian and shade it correctly
+    //with direct illumination.  If not, colors the pixel with a skymap.
+    if (traceRay(P, w, maxDist, surfel)) {
+        Vector3 wi = normalize(Vector3(1, 1, 1));
+        Vector3 wo = -w;
+        Vector3 n = surfel.normal;
+        Radiance3 lightRad = Radiance3(2.0, 2.3, 1);
+        Radiance3 ambientRad = Radiance3(0.5, 0.5, 0.8);
+
+        Surfel ignore;
+        float shadowDist = inf;
+        bool shadow = traceRay(surfel.position + n * 0.1, wi, shadowDist, ignore);
+        
+        pixelColor += (surfel.material.color / pi) * (lightRad * float(!shadow)) * max(0, dot(n, wi)) + (ambientRad * surfel.material.color * ambientVisibility(surfel.position, surfel.normal));
+    } else {
+        pixelColor = sampleTexture(environmentMap, w).rgb;
+    }
+     
+    // Camera space z value
+    float csZ = maxDist / w.z;
+    
+    // Pack into standard OpenGL depth buffer format to make the result compatible
+    // with rasterization and post-processing.
+    gl_FragDepth = (maxDist == inf) ? 1.0 : ((projectionMatrix22 * csZ + projectionMatrix23) / -csZ);
+}
